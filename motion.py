@@ -6,6 +6,7 @@ OpenCV example. Show webcam image and detect face.
  
 import cv2
 import numpy as np
+import serial
 
 webcam = cv2.VideoCapture(1)
 cv2.namedWindow("preview")
@@ -33,6 +34,11 @@ cv2.circle(
 avg = np.float32(mask)
 
 exposure_level = 0
+
+ser = serial.Serial("/dev/ttyUSB0", 9600)
+
+xr = [1024, 0]
+yr = [1024, 0] # min, max
 
 while rval:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -70,7 +76,21 @@ while rval:
     M = cv2.moments(best_cnt)
     cx,cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
     cv2.circle(thr,(cx,cy),5,255,-1)
+
+    if cx < xr[0]:
+      xr[0] = cx - 1
+    elif cx > xr[1]:
+      xr[1] = cx
+
+    if cy < yr[0]:
+      yr[0] = cy - 1
+    elif cy > yr[1]:
+      yr[1] = cy
+
+    cx = 255*(cx - xr[0])/(xr[1]-xr[0])
+    cy = 255*(cy - yr[0])/(yr[1]-yr[0])
     print cx, cy
+    ser.write("%d %d\n" % (cx, cy))
 
     # Show it, if key pessed is 'Esc', exit the loop
     cv2.imshow('frame', thr)
