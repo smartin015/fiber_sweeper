@@ -37,32 +37,45 @@ exposure_level = 0
 while rval:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     #norm = cv2.equalizeHist(gray)
-    cv2.imshow("gray", gray)
-    cv2.pyrDown(gray, gray)
+    cv2.pyrDown(gray, gray) # Downsample by half
 
-    #blur = cv2.blur(gray, (30, 30))
-
-    cv2.accumulateWeighted(gray,avg,0.1)
-    favg = cv2.convertScaleAbs(avg)
+    #cv2.imshow("gray", gray)
+    cv2.accumulateWeighted(gray,avg,0.05)
+    favg = cv2.convertScaleAbs(avg) # Get average image
     
+    meancol = cv2.mean(favg) # TODO: Mask
+
     diff = gray - favg + 128
 
     # threshold out positive values or small negative ones
-    (_, thr) = cv2.threshold(diff, 128 - 20, 255, cv2.THRESH_BINARY_INV)
+    (_, thr) = cv2.threshold(diff, meancol[0]+30, 255, cv2.THRESH_BINARY)
 
     # detect faces and draw bounding boxes
-    cv2.imshow("preview", thr)
- 
-    #maxval = np.amax(masked)
-    #print maxval
-    #thresh = maxval * THRESH_PCT
+    #cv2.imshow("thresh", thr)
+    
+    kern = np.ones((3,3), np.uint8)
+    thr = cv2.erode(thr, kernel=kern, iterations=5)
+    thr = cv2.dilate(thr, kernel=kern,iterations=5)
 
-    #(_, thresholded) = cv2.threshold(masked, thresh, 255, cv2.THRESH_BINARY_INV)
-    #thresholded = cv2.bitwise_and(thresholded, mask)
-    #cv2.imshow("p2", thresholded)
+    contours,hierarchy = cv2.findContours(thr,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
+    # finding contour with maximum area and store it as best_cnt
+    max_area = 0
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > max_area:
+            max_area = area
+            best_cnt = cnt
 
+    # finding centroids of best_cnt and draw a circle there
+    M = cv2.moments(best_cnt)
+    cx,cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
+    cv2.circle(thr,(cx,cy),5,255,-1)
+    print cx, cy
 
-    # get next frame
+    # Show it, if key pessed is 'Esc', exit the loop
+    cv2.imshow('frame', thr)
+
+   # get next frame
     rval, frame = webcam.read()
 
     key = cv2.waitKey(20)
